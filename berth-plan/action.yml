@@ -1,0 +1,90 @@
+name: berth-plan
+description: >
+  Compute the berth deploy plan from the GitHub event — instance, host-prefix,
+  tag, ref, branch, and the up/down/skip action — for a `pull_request` or a push
+  to `main`. Pure: reads only the event context, takes no secret, touches no
+  network. Forked PRs resolve to `deploy=false` (they get no secrets).
+
+# Self-contained and dependency-free (just bash, always present on GitHub
+# runners). Composite actions can read the `github.*` context in step `env:` but
+# cannot read `secrets`, so this action emits no `has_berth` — gate the notify
+# step on the `webhook-secret` being set instead (see berth-notify).
+
+inputs:
+  slug:
+    description: >
+      Short vessel name used to build `host-prefix` (e.g. `gubs` → `gubs-pr-8-`
+      / `gubs-`). Usually the repo basename.
+    required: true
+
+outputs:
+  deploy:
+    description: "'true' when there is something to deploy; 'false' on forked PRs."
+    value: ${{ steps.m.outputs.deploy }}
+  action:
+    description: "`up` | `down` | `skip`."
+    value: ${{ steps.m.outputs.action }}
+  instance:
+    description: "`pr-<n>` for a PR, `main` for a push to main; empty on forks."
+    value: ${{ steps.m.outputs.instance }}
+  host-prefix:
+    description: "Caddy subdomain prefix, e.g. `gubs-pr-8-` or `gubs-`."
+    value: ${{ steps.m.outputs.host-prefix }}
+  tag:
+    description: "Image tag the build pushed: `pr-<n>` or `main`."
+    value: ${{ steps.m.outputs.tag }}
+  ref:
+    description: "Commit SHA to deploy (PR head SHA, or `github.sha` on main)."
+    value: ${{ steps.m.outputs.ref }}
+  branch:
+    description: "PR head branch (for a preview badge); empty on main and forks."
+    value: ${{ steps.m.outputs.branch }}
+
+runs:
+  using: composite
+  steps:
+    - id: m
+      shell: bash
+      env:
+        SLUG: ${{ inputs.slug }}
+        EVENT_NAME: ${{ github.event_name }}
+        EVENT_ACTION: ${{ github.event.action }}
+        # Forks expose no secrets and no write token — nothing to deploy. The
+        # expression short-circuits to false on non-pull_request events.
+        IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        SHA: ${{ github.sha }}
+      run: |
+        set -euo pipefail
+        out() { echo "$1=$2" >> "$GITHUB_OUTPUT"; }
+
+        if [ "$IS_FORK" = "true" ]; then
+          out deploy false; out action skip; out instance ""; out host-prefix ""
+          out tag ""; out ref ""; out branch ""
+          echo "Forked PR — skipping deploy." && exit 0
+        fi
+
+        if [ "$EVENT_NAME" = "pull_request" ]; then
+          out instance "pr-${PR_NUMBER}"
+          out host-prefix "${SLUG}-pr-${PR_NUMBER}-"
+          out tag "pr-${PR_NUMBER}"
+          out ref "$PR_HEAD_SHA"
+          # PR previews announce their source branch via a badge; production
+          # (main) deliberately leaves it empty.
+          out branch "$PR_HEAD_REF"
+          if [ "$EVENT_ACTION" = "closed" ]; then
+            out action down
+          else
+            out action up
+          fi
+        else
+          out instance main
+          out host-prefix "${SLUG}-"
+          out tag main
+          out ref "$SHA"
+          out branch ""
+          out action up
+        fi
+        out deploy true

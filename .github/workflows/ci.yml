@@ -1,0 +1,93 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request: {}
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: actionlint
+        run: |
+          set -euo pipefail
+          # actionlint lints the workflow files (and shellchecks their embedded
+          # run scripts via the runner's preinstalled shellcheck).
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) latest
+          ./actionlint -color
+      - name: shellcheck composite run scripts
+        run: |
+          set -euo pipefail
+          # actionlint doesn't lint standalone composite action.yml files, so
+          # extract their inline `run:` scripts to temp files and shellcheck those.
+          tmp=$(mktemp -d)
+          python3 - "$tmp" berth-*/action.yml <<'PY'
+          import sys, pathlib, yaml
+          out = pathlib.Path(sys.argv[1])
+          for path in sys.argv[2:]:
+              doc = yaml.safe_load(open(path))
+              steps = (doc.get("runs") or {}).get("steps") or []
+              for i, step in enumerate(steps):
+                  run = step.get("run")
+                  if not run:
+                      continue
+                  f = out / (path.replace("/", "_") + f".{i}.sh")
+                  # SC2154: vars come from the action `env:` block, not the script.
+                  f.write_text("#!/usr/bin/env bash\n# shellcheck disable=SC2154\n" + run)
+          PY
+          for s in "$tmp"/*.sh; do
+            echo "shellcheck $s"
+            shellcheck --shell=bash "$s"
+          done
+
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: pipx install check-jsonschema
+      - name: Schema is a valid JSON Schema
+        run: check-jsonschema --check-metaschema schema/*.json
+      - name: Example payloads conform to the schema
+        run: check-jsonschema --schemafile schema/berth-payload.v1.json examples/*.json
+      - name: berth-notify's body filter matches the examples and the schema
+        run: |
+          set -euo pipefail
+          # Rebuild each example through the exact filter berth-notify uses
+          # (body.jq), then assert the result both matches the committed example
+          # and validates against the schema. This locks all three together: edit
+          # body.jq and the regenerated body diverges from the example; rename a
+          # field and the schema rejects it (every field is required).
+          for ex in examples/*.json; do
+            regen=$(jq -nc \
+              --arg repo "$(jq -r .repo "$ex")" \
+              --arg ref "$(jq -r .ref "$ex")" \
+              --arg instance "$(jq -r .instance "$ex")" \
+              --arg host_prefix "$(jq -r .host_prefix "$ex")" \
+              --arg tag "$(jq -r .tag "$ex")" \
+              --arg action "$(jq -r .action "$ex")" \
+              --argjson secrets "$(jq -c .secrets "$ex")" \
+              -f berth-notify/body.jq)
+            printf '%s' "$regen" > "$RUNNER_TEMP/regen.json"
+            check-jsonschema --schemafile schema/berth-payload.v1.json "$RUNNER_TEMP/regen.json"
+            if ! diff <(printf '%s' "$regen" | jq -S .) <(jq -S . "$ex"); then
+              echo "::error::berth-notify/body.jq output diverged from $ex"
+              exit 1
+            fi
+            echo "ok: $ex"
+          done
+
+  version:
+    needs: [lint, contract]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # push the tag + create the Release (main only)
+    steps:
+      - uses: actions/checkout@v6
+        with: { fetch-depth: 0, fetch-tags: true }
+      - id: ver
+        uses: jlopez/derive-version@v1   # NOT ./ — this repo isn't a versioning action
+        with:
+          initial-version: '1.0.0'       # debut at 1.0.0 (stable contract)
+          create-release: ${{ github.ref == 'refs/heads/main' }}
+          floating-tags: true            # we ship actions: maintain v1 / v1.0

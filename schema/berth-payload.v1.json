@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/jlopez/berth-action/v1/schema/berth-payload.v1.json",
+  "title": "berth deploy payload (v1)",
+  "description": "The HMAC-signed JSON body a vessel POSTs to the berth runner. Owned by jlopez/berth-action; vendor a pinned copy host-side and validate inbound payloads against it before acting.",
+  "type": "object",
+  "required": ["v", "repo", "ref", "instance", "host_prefix", "tag", "action", "secrets"],
+  "additionalProperties": true,
+  "properties": {
+    "v": {
+      "const": 1,
+      "description": "Contract version. Fixed by berth-notify; a future shape bumps this so the runner can branch on it. Unknown future keys are allowed (additionalProperties), so adding fields stays backward-compatible."
+    },
+    "repo": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$",
+      "description": "owner/name, exactly one slash. The runner still matches this against its allowlist — this only gates shape."
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Commit SHA to check out deploy/compose.yml from."
+    },
+    "instance": {
+      "type": "string",
+      "pattern": "^(main|pr-[0-9]+)$",
+      "description": "main, or pr-<n> for a preview."
+    },
+    "host_prefix": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+-$",
+      "description": "DNS-safe Caddy subdomain prefix, always ending in '-' (e.g. gubs- or gubs-pr-8-). Flows into hostnames, so it is constrained to lowercase DNS label chars."
+    },
+    "tag": {
+      "type": "string",
+      "pattern": "^(main|pr-[0-9]+)$",
+      "description": "Image tag the vessel CI pushed: main or pr-<n>."
+    },
+    "action": {
+      "enum": ["up", "down"],
+      "description": "up to deploy, down to tear down. (skip never reaches the runner.)"
+    },
+    "secrets": {
+      "type": "object",
+      "description": "KEY=value pairs written host-side to the stack env file. Keys must be valid env-var identifiers; may be empty ({}).",
+      "patternProperties": {
+        "^[A-Za-z_][A-Za-z0-9_]*$": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,75 @@
+name: berth-comment
+description: >
+  Upsert a single PR comment listing the berth preview URLs — one row per service,
+  keyed by a hidden HTML marker so every push edits the same comment. Posts a
+  "torn down" note instead when `action` is `down`. Meaningful only on
+  `pull_request`; gate it with `if:` accordingly.
+
+# Self-contained and dependency-free (bash + jq + the `gh` CLI, all present on
+# GitHub runners). Needs `pull-requests: write` on the job (or a token with it).
+
+inputs:
+  services:
+    description: >
+      JSON array of service objects with at least `name` and `host` (reuse the
+      same JSON that drives the build matrix; extra fields like port/entry are
+      ignored). Each row renders as
+      `| <name> | https://<host-prefix><host>.jesusla.com |`.
+    required: true
+  host-prefix:
+    description: Caddy subdomain prefix (from berth-plan `host-prefix`).
+    required: true
+  action:
+    description: "`up` (table) or `down` (torn-down note), from berth-plan `action`."
+    required: true
+  pr:
+    description: PR number to comment on.
+    default: ${{ github.event.pull_request.number }}
+  head-sha:
+    description: PR head SHA, shown in the comment footer.
+    default: ${{ github.event.pull_request.head.sha }}
+  github-token:
+    description: "Token used for the `gh api` calls (needs `pull-requests: write`)."
+    default: ${{ github.token }}
+  repo:
+    description: "`owner/name` whose PR is commented on."
+    default: ${{ github.repository }}
+
+runs:
+  using: composite
+  steps:
+    - id: comment
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        REPO: ${{ inputs.repo }}
+        PR: ${{ inputs.pr }}
+        ACTION: ${{ inputs.action }}
+        HOST_PREFIX: ${{ inputs.host-prefix }}
+        SERVICES: ${{ inputs.services }}
+        HEAD_SHA: ${{ inputs.head-sha }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "${PR:-}" ]; then
+          echo "::notice::berth-comment: no PR number — skipping (not a pull_request)."
+          exit 0
+        fi
+
+        marker="<!-- berth-preview -->"
+        if [ "$ACTION" = "down" ]; then
+          body="$marker"$'\n'"🚢 Preview for this PR has been **torn down**."
+        else
+          rows=$(printf '%s' "$SERVICES" | jq -r --arg p "$HOST_PREFIX" \
+            '.[] | "| \(.name) | https://\($p)\(.host).jesusla.com |"')
+          body="$marker"$'\n'"### 🚢 Preview deployments"$'\n\n'"| UI | URL |"$'\n'"| --- | --- |"$'\n'"$rows"$'\n\n'"_Updated for \`${HEAD_SHA}\`. Rebuilt on every push; removed when the PR closes._"
+        fi
+
+        # Upsert: find our marker comment and PATCH it, else POST a new one.
+        id=$(gh api "repos/${REPO}/issues/${PR}/comments" \
+          --jq "map(select(.body | startswith(\"$marker\"))) | .[0].id // empty")
+        if [ -n "$id" ]; then
+          gh api -X PATCH "repos/${REPO}/issues/comments/$id" -f body="$body" >/dev/null
+        else
+          gh api -X POST "repos/${REPO}/issues/${PR}/comments" -f body="$body" >/dev/null
+        fi
