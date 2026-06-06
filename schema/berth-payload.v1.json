@@ -42,9 +42,9 @@
     },
     "secrets": {
       "type": "object",
-      "description": "KEY=value pairs written host-side to the stack env file. Keys must be valid env-var identifiers; may be empty ({}).",
+      "description": "KEY=value pairs written host-side to the stack env file; may be empty ({}). Keys start with a letter or underscore and may contain letters, digits, underscores, and dots — dots allow dotted property names some apps read from the environment (e.g. ArcadeDB's `arcadedb.server.rootPassword`). The `=`/whitespace/newline exclusion keeps the line-oriented env file from being corrupted or injected into.",
       "patternProperties": {
-        "^[A-Za-z_][A-Za-z0-9_]*$": { "type": "string" }
+        "^[A-Za-z_][A-Za-z0-9_.]*$": { "type": "string" }
       },
       "additionalProperties": false
     }
