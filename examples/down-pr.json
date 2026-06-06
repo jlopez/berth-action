@@ -6,5 +6,6 @@
   "host_prefix": "gubs-pr-8-",
   "tag": "pr-8",
   "action": "down",
+  "deploy_id": "9876543230-1",
   "secrets": {}
 }

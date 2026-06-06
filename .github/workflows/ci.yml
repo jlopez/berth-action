@@ -66,6 +66,7 @@ jobs:
               --arg host_prefix "$(jq -r .host_prefix "$ex")" \
               --arg tag "$(jq -r .tag "$ex")" \
               --arg action "$(jq -r .action "$ex")" \
+              --arg deploy_id "$(jq -r .deploy_id "$ex")" \
               --argjson secrets "$(jq -c .secrets "$ex")" \
               -f berth-notify/body.jq)
             printf '%s' "$regen" > "$RUNNER_TEMP/regen.json"

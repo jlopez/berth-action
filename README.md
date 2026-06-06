@@ -17,7 +17,7 @@ vessel is a few lines of YAML plus a `deploy/compose.yml`.
 | action          | what it does                                                              | needs secrets? | network |
 | --------------- | ------------------------------------------------------------------------- | -------------- | ------- |
 | `berth-plan`    | Compute the deploy plan (instance/host-prefix/tag/ref/branch/up-down-skip) from the event. | no  | no      |
-| `berth-notify`  | Assemble + HMAC-sign + POST the contract body to the runner.              | yes (HMAC key) | yes     |
+| `berth-notify`  | Assemble + HMAC-sign + POST the contract body, then wait until the stack docks. | yes (HMAC key) | yes     |
 | `berth-comment` | Upsert a single PR comment listing the preview URLs.                      | no (PR token)  | yes     |
 
 They compose: `berth-plan` runs in a cheap `meta` job and feeds its outputs to the
@@ -197,8 +197,28 @@ jobs:
 | `tag`            | yes      | —                                        | Image tag the build pushed.                          |
 | `action`         | yes      | —                                        | `up` or `down`.                                      |
 | `secrets`        | no       | `''`                                     | Multiline `KEY=value`; empty-value lines are dropped, split on the first `=`. |
+| `wait`           | no       | `'true'`                                 | Poll the runner and fail the step unless the stack docks. `'false'` = fire-and-forget. |
+| `wait-timeout`   | no       | `'900'`                                  | Overall budget (s), incl. time queued behind other deploys on the single-flock host. |
+| `wait-running-timeout` | no | `'120'`                                | Backstop (s) once `running` — for a host that dies mid-deploy; the host fails unhealthy stacks itself in ~60s. |
+| `poll-interval`  | no       | `'5'`                                    | Seconds between status polls.                        |
+| `status-url`     | no       | `''` (derived from `webhook-url`)        | Status-readback endpoint; default swaps trailing `/berth` → `/berth-status`. |
 
-No outputs (it POSTs and exits).
+| output      | meaning                                                                 |
+| ----------- | ----------------------------------------------------------------------- |
+| `deploy-id` | The `run_id-run_attempt` token sent as `deploy_id` and polled on; empty when the action no-ops. |
+
+**Waiting (default).** `berth-notify` sends the payload, then polls
+`/hooks/berth-status` until the runner reports `success` (step passes) or
+`failure`/timeout (step fails) — so CI goes green only on a real deploy. "Docked"
+means `docker compose up --wait` succeeded: a service with a `healthcheck` must
+become healthy; one without counts as up once running. Set `wait: false` for the
+old fire-and-forget behaviour.
+
+> Waiting needs a runner that serves **`/hooks/berth-status`** (shipped alongside
+> this feature). The `deploy_id` field is harmlessly ignored by an older runner,
+> but the *poll* would never resolve against one — so update the host first, or
+> use `wait: false` until it's deployed. (Back-compat applies to the contract
+> **body**; the wait loop is a coordinated host+action change.)
 
 ### `berth-comment`
 
@@ -222,8 +242,14 @@ is:
 ```jsonc
 { "v": 1, "repo": "owner/name", "ref": "<sha>", "instance": "pr-8" | "main",
   "host_prefix": "gubs-pr-8-" | "gubs-", "tag": "pr-8" | "main",
-  "action": "up" | "down", "secrets": { "KEY": "value", … } }
+  "action": "up" | "down", "deploy_id": "<run_id-run_attempt>",
+  "secrets": { "KEY": "value", … } }
 ```
+
+> `deploy_id` is a per-run correlation token the runner keys its deploy-status
+> file on, so `berth-notify` can poll `/hooks/berth-status` until the stack docks.
+> It's additive and backward-compatible (optional in the schema, ignored by an
+> older runner), so it does **not** bump `v`.
 
 > `v` is the **contract version**, fixed by `berth-notify` (not a caller input) and
 > bumped only on a breaking body change, so the runner can branch on it. Unknown to

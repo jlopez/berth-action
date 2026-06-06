@@ -6,5 +6,8 @@
   "host_prefix": "gubs-pr-8-",
   "tag": "pr-8",
   "action": "up",
-  "secrets": { "OPENAI_API_KEY": "sk-example-not-a-real-key" }
+  "deploy_id": "9876543210-1",
+  "secrets": {
+    "OPENAI_API_KEY": "sk-example-not-a-real-key"
+  }
 }
