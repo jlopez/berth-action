@@ -32,8 +32,8 @@ inputs:
   instance:
     description: "`pr-<n>` or `main` (from berth-plan `instance`)."
     required: true
-  host-prefix:
-    description: Caddy subdomain prefix (from berth-plan `host-prefix`).
+  host-base:
+    description: Caddy hostname base, no trailing dash (from berth-plan `host-base`).
     required: true
   tag:
     description: Image tag the build pushed (from berth-plan `tag`).
@@ -101,7 +101,7 @@ runs:
         REPO: ${{ inputs.repo }}
         REF: ${{ inputs.ref }}
         INSTANCE: ${{ inputs.instance }}
-        HOST_PREFIX: ${{ inputs.host-prefix }}
+        HOST_BASE: ${{ inputs.host-base }}
         TAG: ${{ inputs.tag }}
         ACTION: ${{ inputs.action }}
         SECRETS: ${{ inputs.secrets }}
@@ -142,7 +142,7 @@ runs:
         # vendors can't drift apart. `v` (the contract version) is set there.
         body=$(jq -nc \
           --arg repo "$REPO" --arg ref "$REF" --arg instance "$INSTANCE" \
-          --arg host_prefix "$HOST_PREFIX" --arg tag "$TAG" --arg action "$ACTION" \
+          --arg host_base "$HOST_BASE" --arg tag "$TAG" --arg action "$ACTION" \
           --arg deploy_id "$DEPLOY_ID" \
           --argjson secrets "$secrets_json" \
           -f "$GITHUB_ACTION_PATH/body.jq")

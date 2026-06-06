@@ -4,7 +4,7 @@
   "title": "berth deploy payload (v1)",
   "description": "The HMAC-signed JSON body a vessel POSTs to the berth runner. Owned by jlopez/berth-action; vendor a pinned copy host-side and validate inbound payloads against it before acting.",
   "type": "object",
-  "required": ["v", "repo", "ref", "instance", "host_prefix", "tag", "action", "secrets"],
+  "required": ["v", "repo", "ref", "instance", "host_base", "tag", "action", "secrets"],
   "additionalProperties": true,
   "properties": {
     "v": {
@@ -26,10 +26,10 @@
       "pattern": "^(main|pr-[0-9]+)$",
       "description": "main, or pr-<n> for a preview."
     },
-    "host_prefix": {
+    "host_base": {
       "type": "string",
-      "pattern": "^[a-z0-9-]+-$",
-      "description": "DNS-safe Caddy subdomain prefix, always ending in '-' (e.g. gubs- or gubs-pr-8-). Flows into hostnames, so it is constrained to lowercase DNS label chars."
+      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "description": "DNS-safe Caddy hostname base, no trailing dash (e.g. gubs or gubs-pr-8). A root service routes to ${HOST_BASE}.jesusla.com; a suffixed one joins it with a dash (${HOST_BASE}-sim.jesusla.com). Flows into hostnames, so it is a single lowercase DNS label."
     },
     "tag": {
       "type": "string",

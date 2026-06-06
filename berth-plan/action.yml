@@ -1,6 +1,6 @@
 name: berth-plan
 description: >
-  Compute the berth deploy plan from the GitHub event — instance, host-prefix,
+  Compute the berth deploy plan from the GitHub event — instance, host-base,
   tag, ref, branch, and the up/down/skip action — for a `pull_request` or a push
   to `main`. Pure: reads only the event context, takes no secret, touches no
   network. Forked PRs resolve to `deploy=false` (they get no secrets).
@@ -13,8 +13,8 @@ description: >
 inputs:
   slug:
     description: >
-      Short vessel name used to build `host-prefix` (e.g. `gubs` → `gubs-pr-8-`
-      / `gubs-`). Usually the repo basename.
+      Short vessel name used to build `host-base` (e.g. `gubs` → `gubs-pr-8`
+      / `gubs`). Usually the repo basename.
     required: true
 
 outputs:
@@ -27,9 +27,12 @@ outputs:
   instance:
     description: "`pr-<n>` for a PR, `main` for a push to main; empty on forks."
     value: ${{ steps.m.outputs.instance }}
-  host-prefix:
-    description: "Caddy subdomain prefix, e.g. `gubs-pr-8-` or `gubs-`."
-    value: ${{ steps.m.outputs.host-prefix }}
+  host-base:
+    description: >
+      Caddy hostname base (no trailing dash), e.g. `gubs-pr-8` or `gubs`. A root
+      service routes to `${HOST_BASE}.jesusla.com`; a suffixed one joins it with a
+      dash: `${HOST_BASE}-sim.jesusla.com`.
+    value: ${{ steps.m.outputs.host-base }}
   tag:
     description: "Image tag the build pushed: `pr-<n>` or `main`."
     value: ${{ steps.m.outputs.tag }}
@@ -61,14 +64,14 @@ runs:
         out() { echo "$1=$2" >> "$GITHUB_OUTPUT"; }
 
         if [ "$IS_FORK" = "true" ]; then
-          out deploy false; out action skip; out instance ""; out host-prefix ""
+          out deploy false; out action skip; out instance ""; out host-base ""
           out tag ""; out ref ""; out branch ""
           echo "Forked PR — skipping deploy." && exit 0
         fi
 
         if [ "$EVENT_NAME" = "pull_request" ]; then
           out instance "pr-${PR_NUMBER}"
-          out host-prefix "${SLUG}-pr-${PR_NUMBER}-"
+          out host-base "${SLUG}-pr-${PR_NUMBER}"
           out tag "pr-${PR_NUMBER}"
           out ref "$PR_HEAD_SHA"
           # PR previews announce their source branch via a badge; production
@@ -81,7 +84,7 @@ runs:
           fi
         else
           out instance main
-          out host-prefix "${SLUG}-"
+          out host-base "${SLUG}"
           out tag main
           out ref "$SHA"
           out branch ""

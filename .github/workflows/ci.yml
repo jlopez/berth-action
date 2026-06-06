@@ -63,7 +63,7 @@ jobs:
               --arg repo "$(jq -r .repo "$ex")" \
               --arg ref "$(jq -r .ref "$ex")" \
               --arg instance "$(jq -r .instance "$ex")" \
-              --arg host_prefix "$(jq -r .host_prefix "$ex")" \
+              --arg host_base "$(jq -r .host_base "$ex")" \
               --arg tag "$(jq -r .tag "$ex")" \
               --arg action "$(jq -r .action "$ex")" \
               --arg deploy_id "$(jq -r .deploy_id "$ex")" \
