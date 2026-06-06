@@ -7,6 +7,11 @@
 #
 # `v` is the contract version, fixed here (not a caller input). Bump it only on a
 # breaking body change, so the runner can branch on it.
+#
+# `deploy_id` is a per-CI-run correlation token (run_id-run_attempt). The runner
+# keys its deploy-status file on it so berth-notify can poll /hooks/berth-status
+# until the stack docks. It's an additive, backward-compatible field (optional in
+# the schema, ignored by an older runner), so it does NOT bump `v`.
 {
   v: 1,
   repo: $repo,
@@ -15,5 +20,6 @@
   host_prefix: $host_prefix,
   tag: $tag,
   action: $action,
+  deploy_id: $deploy_id,
   secrets: $secrets
 }

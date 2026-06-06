@@ -6,5 +6,8 @@
   "host_prefix": "gubs-",
   "tag": "main",
   "action": "up",
-  "secrets": { "OPENAI_API_KEY": "sk-example-not-a-real-key" }
+  "deploy_id": "9876543200-1",
+  "secrets": {
+    "OPENAI_API_KEY": "sk-example-not-a-real-key"
+  }
 }

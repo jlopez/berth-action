@@ -40,6 +40,11 @@
       "enum": ["up", "down"],
       "description": "up to deploy, down to tear down. (skip never reaches the runner.)"
     },
+    "deploy_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "description": "Optional per-CI-run correlation token (e.g. run_id-run_attempt). The runner keys its deploy-status file on it so the vessel can poll /hooks/berth-status until the stack docks. Filename-safe charset, no '/'. Additive and backward-compatible (not in `required`): a runner that ignores it still deploys; berth-notify always sends it."
+    },
     "secrets": {
       "type": "object",
       "description": "KEY=value pairs written host-side to the stack env file; may be empty ({}). Keys start with a letter or underscore and may contain letters, digits, underscores, and dots — dots allow dotted property names some apps read from the environment (e.g. ArcadeDB's `arcadedb.server.rootPassword`). The `=`/whitespace/newline exclusion keeps the line-oriented env file from being corrupted or injected into.",
