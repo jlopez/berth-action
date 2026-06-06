@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "repo": "cadenaplatforms/nexus-monorepo",
+  "ref": "1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d",
+  "instance": "pr-8",
+  "host_prefix": "nexus-pr-8-",
+  "tag": "pr-8",
+  "action": "up",
+  "secrets": {
+    "OPENAI_API_KEY": "sk-example-not-a-real-key",
+    "ARCADE_PASSWORD": "example",
+    "arcadedb.server.rootPassword": "example"
+  }
+}
