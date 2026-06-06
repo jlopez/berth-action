@@ -17,7 +17,7 @@
   repo: $repo,
   ref: $ref,
   instance: $instance,
-  host_prefix: $host_prefix,
+  host_base: $host_base,
   tag: $tag,
   action: $action,
   deploy_id: $deploy_id,

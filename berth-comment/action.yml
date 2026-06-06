@@ -13,11 +13,12 @@ inputs:
     description: >
       JSON array of service objects with at least `name` and `host` (reuse the
       same JSON that drives the build matrix; extra fields like port/entry are
-      ignored). Each row renders as
-      `| <name> | https://<host-prefix><host>.jesusla.com |`.
+      ignored). A service whose `host` is empty or absent is the *root* service
+      and renders as `| <name> | https://<host-base>.jesusla.com |`; otherwise the
+      row is `| <name> | https://<host-base>-<host>.jesusla.com |`.
     required: true
-  host-prefix:
-    description: Caddy subdomain prefix (from berth-plan `host-prefix`).
+  host-base:
+    description: Caddy hostname base, no trailing dash (from berth-plan `host-base`).
     required: true
   action:
     description: "`up` (table) or `down` (torn-down note), from berth-plan `action`."
@@ -45,7 +46,7 @@ runs:
         REPO: ${{ inputs.repo }}
         PR: ${{ inputs.pr }}
         ACTION: ${{ inputs.action }}
-        HOST_PREFIX: ${{ inputs.host-prefix }}
+        HOST_BASE: ${{ inputs.host-base }}
         SERVICES: ${{ inputs.services }}
         HEAD_SHA: ${{ inputs.head-sha }}
       run: |
@@ -60,8 +61,10 @@ runs:
         if [ "$ACTION" = "down" ]; then
           body="$marker"$'\n'"🚢 Preview for this PR has been **torn down**."
         else
-          rows=$(printf '%s' "$SERVICES" | jq -r --arg p "$HOST_PREFIX" \
-            '.[] | "| \(.name) | https://\($p)\(.host).jesusla.com |"')
+          # A service with an empty/absent `host` is the root → bare base host;
+          # otherwise join the base and the suffix with a dash.
+          rows=$(printf '%s' "$SERVICES" | jq -r --arg b "$HOST_BASE" \
+            '.[] | "| \(.name) | https://\(if (.host // "") == "" then $b else "\($b)-\(.host)" end).jesusla.com |"')
           body="$marker"$'\n'"### 🚢 Preview deployments"$'\n\n'"| UI | URL |"$'\n'"| --- | --- |"$'\n'"$rows"$'\n\n'"_Updated for \`${HEAD_SHA}\`. Rebuilt on every push; removed when the PR closes._"
         fi
 

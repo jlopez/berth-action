@@ -16,7 +16,7 @@ vessel is a few lines of YAML plus a `deploy/compose.yml`.
 
 | action          | what it does                                                              | needs secrets? | network |
 | --------------- | ------------------------------------------------------------------------- | -------------- | ------- |
-| `berth-plan`    | Compute the deploy plan (instance/host-prefix/tag/ref/branch/up-down-skip) from the event. | no  | no      |
+| `berth-plan`    | Compute the deploy plan (instance/host-base/tag/ref/branch/up-down-skip) from the event. | no  | no      |
 | `berth-notify`  | Assemble + HMAC-sign + POST the contract body, then wait until the stack docks. | yes (HMAC key) | yes     |
 | `berth-comment` | Upsert a single PR comment listing the preview URLs.                      | no (PR token)  | yes     |
 
@@ -35,7 +35,13 @@ injects exactly two variables and writes one file — the same compose then prod
 every environment:
 
 - **`TAG`** — image tag to run: `main` (prod) or `pr-<n>` (preview).
-- **`HOST_PREFIX`** — Caddy subdomain prefix: `gubs-` (prod) or `gubs-pr-<n>-`.
+- **`HOST_BASE`** — Caddy hostname base, **no trailing dash**: `gubs` (prod) or
+  `gubs-pr-<n>`. Routing is the vessel's call:
+  - a **root** service uses the base alone → `caddy: ${HOST_BASE}.jesusla.com`
+    (so `gubs.jesusla.com` / `gubs-pr-8.jesusla.com`);
+  - a **suffixed** service joins the base with a dash →
+    `caddy: ${HOST_BASE}-sim.jesusla.com` (so `gubs-sim.jesusla.com` /
+    `gubs-pr-8-sim.jesusla.com`).
 - an **`env` file** written next to the compose from the `secrets` payload (always
   written, even empty; `0600`, removed on teardown).
 
@@ -45,15 +51,26 @@ key-free run (no `env`) still works:
 
 ```yaml
 services:
-  sim-viewer:
-    image: ghcr.io/jlopez/gubs-sim-viewer:${TAG:-main}
+  web:                                          # the root service
+    image: ghcr.io/jlopez/gubs-web:${TAG:-main}
     pull_policy: always
     env_file:
       - path: env
         required: false   # absent for key-free runs
     networks: [proxy]
     labels:
-      caddy: ${HOST_PREFIX:-gubs-}sim.jesusla.com
+      caddy: ${HOST_BASE:-gubs}.jesusla.com     # → gubs.jesusla.com / gubs-pr-8.jesusla.com
+      caddy.reverse_proxy: '{{upstreams 3000}}'
+    restart: unless-stopped
+  sim-viewer:                                   # a suffixed service
+    image: ghcr.io/jlopez/gubs-sim-viewer:${TAG:-main}
+    pull_policy: always
+    env_file:
+      - path: env
+        required: false
+    networks: [proxy]
+    labels:
+      caddy: ${HOST_BASE:-gubs}-sim.jesusla.com  # → gubs-sim... / gubs-pr-8-sim...
       caddy.reverse_proxy: '{{upstreams 4173}}'
     restart: unless-stopped
 
@@ -92,7 +109,7 @@ jobs:
       deploy: ${{ steps.plan.outputs.deploy }}
       action: ${{ steps.plan.outputs.action }}
       instance: ${{ steps.plan.outputs.instance }}
-      host-prefix: ${{ steps.plan.outputs.host-prefix }}
+      host-base: ${{ steps.plan.outputs.host-base }}
       tag: ${{ steps.plan.outputs.tag }}
       ref: ${{ steps.plan.outputs.ref }}
       branch: ${{ steps.plan.outputs.branch }}
@@ -103,10 +120,11 @@ jobs:
         with:
           slug: gubs
       # Single source of truth for the UI services — drives the build matrix AND
-      # the berth-comment URLs. `host` must match each service's Caddy host label.
+      # the berth-comment URLs. `host` must match each service's Caddy host suffix;
+      # an empty/absent `host` marks the root service (→ ${HOST_BASE}.jesusla.com).
       - id: svc
         run: |
-          echo 'services=[{"name":"sim-viewer","host":"sim","entry":"packages/sim-viewer/src/server.ts","port":"4173"},{"name":"ui-prototype-1","host":"play","entry":"packages/ui-prototype-1/src/server.ts","port":"4174"}]' >> "$GITHUB_OUTPUT"
+          echo 'services=[{"name":"web","host":"","entry":"packages/web/src/server.ts","port":"3000"},{"name":"sim-viewer","host":"sim","entry":"packages/sim-viewer/src/server.ts","port":"4173"}]' >> "$GITHUB_OUTPUT"
 
   # ─── vessel-specific; example only, NOT part of berth-action ───────────────
   build:
@@ -149,7 +167,7 @@ jobs:
           webhook-secret: ${{ secrets.BERTH_WEBHOOK_SECRET }}
           ref: ${{ needs.meta.outputs.ref }}
           instance: ${{ needs.meta.outputs.instance }}
-          host-prefix: ${{ needs.meta.outputs.host-prefix }}
+          host-base: ${{ needs.meta.outputs.host-base }}
           tag: ${{ needs.meta.outputs.tag }}
           action: ${{ needs.meta.outputs.action }}
           # Forwarded to the stack host-side (written into the compose `env`
@@ -162,7 +180,7 @@ jobs:
         uses: jlopez/berth-action/berth-comment@v1
         with:
           services: ${{ needs.meta.outputs.services }}
-          host-prefix: ${{ needs.meta.outputs.host-prefix }}
+          host-base: ${{ needs.meta.outputs.host-base }}
           action: ${{ needs.meta.outputs.action }}
 ```
 
@@ -172,14 +190,14 @@ jobs:
 
 | input  | required | meaning                                                   |
 | ------ | -------- | --------------------------------------------------------- |
-| `slug` | yes      | Short vessel name used to build `host-prefix` (e.g. `gubs`). |
+| `slug` | yes      | Short vessel name used to build `host-base` (e.g. `gubs`). |
 
 | output        | meaning                                                       |
 | ------------- | ------------------------------------------------------------- |
 | `deploy`      | `'true'` when there's something to deploy; `'false'` on forks. |
 | `action`      | `up` \| `down` \| `skip`.                                     |
 | `instance`    | `pr-<n>` or `main`; empty on forks.                           |
-| `host-prefix` | Caddy subdomain prefix, e.g. `gubs-pr-8-` / `gubs-`.          |
+| `host-base`   | Caddy hostname base, no trailing dash, e.g. `gubs-pr-8` / `gubs`. |
 | `tag`         | Image tag: `pr-<n>` or `main`.                                |
 | `ref`         | Commit SHA to deploy (PR head SHA, or `github.sha` on main).  |
 | `branch`      | PR head branch; empty on main and forks.                     |
@@ -193,7 +211,7 @@ jobs:
 | `repo`           | no       | `${{ github.repository }}`               | `owner/name` of the vessel.                          |
 | `ref`            | yes      | —                                        | Commit SHA to deploy.                                |
 | `instance`       | yes      | —                                        | `pr-<n>` or `main`.                                  |
-| `host-prefix`    | yes      | —                                        | Caddy subdomain prefix.                              |
+| `host-base`      | yes      | —                                        | Caddy hostname base, no trailing dash.              |
 | `tag`            | yes      | —                                        | Image tag the build pushed.                          |
 | `action`         | yes      | —                                        | `up` or `down`.                                      |
 | `secrets`        | no       | `''`                                     | Multiline `KEY=value`; empty-value lines are dropped, split on the first `=`. |
@@ -224,8 +242,8 @@ old fire-and-forget behaviour.
 
 | input          | required | default                                          | meaning                                       |
 | -------------- | -------- | ------------------------------------------------ | --------------------------------------------- |
-| `services`     | yes      | —                                                | JSON array of `{name, host, …}` objects.      |
-| `host-prefix`  | yes      | —                                                | Caddy subdomain prefix.                       |
+| `services`     | yes      | —                                                | JSON array of `{name, host, …}` objects; empty/absent `host` = root service. |
+| `host-base`    | yes      | —                                                | Caddy hostname base, no trailing dash.        |
 | `action`       | yes      | —                                                | `up` (table) or `down` (torn-down note).      |
 | `pr`           | no       | `${{ github.event.pull_request.number }}`        | PR number to comment on.                      |
 | `head-sha`     | no       | `${{ github.event.pull_request.head.sha }}`      | Shown in the comment footer.                  |
@@ -241,7 +259,7 @@ is:
 
 ```jsonc
 { "v": 1, "repo": "owner/name", "ref": "<sha>", "instance": "pr-8" | "main",
-  "host_prefix": "gubs-pr-8-" | "gubs-", "tag": "pr-8" | "main",
+  "host_base": "gubs-pr-8" | "gubs", "tag": "pr-8" | "main",
   "action": "up" | "down", "deploy_id": "<run_id-run_attempt>",
   "secrets": { "KEY": "value", … } }
 ```
@@ -255,8 +273,8 @@ is:
 > bumped only on a breaking body change, so the runner can branch on it. Unknown to
 > an older runner, it's simply ignored — adding it is backward-compatible.
 >
-> JSON field names are **snake_case** (`host_prefix`) per the contract; action
-> inputs/outputs use **kebab-case** (`host-prefix`) per Actions convention.
+> JSON field names are **snake_case** (`host_base`) per the contract; action
+> inputs/outputs use **kebab-case** (`host-base`) per Actions convention.
 
 A secret-less, **zero-config GitHub-OIDC** mode is planned: the runner would verify
 a short-lived OIDC token instead of a shared HMAC key. The `webhook-secret`-optional
