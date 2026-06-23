@@ -79,6 +79,52 @@ networks:
     external: true
 ```
 
+### Secrets → the stack `env` file
+
+Each key/value in the `secrets` payload becomes one `KEY=VALUE` line in the `env`
+file the runner writes next to the compose (`0600`, removed on teardown). The
+runner validates the shape host-side *before* writing, so a vessel author usually
+discovers these rules only when a deploy is rejected — they are:
+
+- **Keys** must match `^[A-Za-z_][A-Za-z0-9_.]*$` — start with a letter or
+  underscore, then any of letters, digits, underscores, and **dots**. Dots let you
+  ship the dotted property names some apps read straight from the environment (e.g.
+  ArcadeDB's `arcadedb.server.rootPassword`).
+- **Values** are strings and must be **single-line** — the host rejects embedded
+  newlines, because the `env` file is line-oriented and one value is one line.
+- `secrets` **may be empty** (`{}`); the `env` file is written either way (so a
+  key-free run still deploys).
+
+You supply these as `KEY=value` lines on `berth-notify`'s `secrets` input; lines
+whose value is empty are dropped, and the rest are split on the first `=` into the
+signed JSON object. A realistic multi-secret payload (incl. a dotted key — mirrors
+[`examples/up-pr-dotted.json`](./examples/up-pr-dotted.json)):
+
+```json
+"secrets": {
+  "OPENAI_API_KEY": "sk-…",
+  "ARCADE_PASSWORD": "…",
+  "arcadedb.server.rootPassword": "…"
+}
+```
+
+is written host-side as:
+
+```dotenv
+OPENAI_API_KEY=sk-…
+ARCADE_PASSWORD=…
+arcadedb.server.rootPassword=…
+```
+
+### One `deploy/compose.yml`, baked images
+
+The runner materializes **exactly one** `deploy/compose.yml`, checked out from the
+ref — nothing else. There's no multi-compose merge, no bind-mounted local config,
+and no local build context: anything the stack needs beyond the two injected vars
+(`TAG`, `HOST_BASE`) and the `env` file must be **baked into images** the compose
+pulls. This is a host-runner behavior, tracked in
+[jlopez/infrastructure-config#38](https://github.com/jlopez/infrastructure-config/issues/38).
+
 ## Complete vessel `deploy.yml`
 
 The `meta` and `berth` jobs are fully generic (these actions). The `build` job is
