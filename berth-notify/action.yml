@@ -205,7 +205,14 @@ runs:
 
           case "$state" in
             success) echo "berth: ${INSTANCE} docked ✓"; exit 0 ;;
-            failure) echo "::error::berth: ${INSTANCE} failed to dock"; exit 1 ;;
+            failure)
+              # The host serves a safe, non-secret one-line reason in the
+              # terminal failure status. Surface it so the vessel author needn't
+              # SSH the host to learn why. Default empty for older hosts.
+              reason=$(printf '%s' "$resp" | jq -r '.reason // ""' 2>/dev/null || true)
+              echo "::error::berth: ${INSTANCE} failed to dock${reason:+: ${reason}}"
+              exit 1
+              ;;
           esac
 
           if [ "$running_deadline" -ne 0 ] && [ "$now" -ge "$running_deadline" ]; then
