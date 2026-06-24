@@ -20,9 +20,19 @@ inputs:
       GitHub-OIDC mode.
     required: false
     default: ''
+  domain:
+    description: >
+      Berth host's wildcard domain. Used to derive `webhook-url` (and thus the
+      status endpoint) as `https://webhook.<domain>/hooks/berth` when `webhook-url`
+      is left empty, so a vessel pointed at another berth host sets just this one
+      value. Default `jesusla.com`; e.g. `apps.cadena.run`.
+    default: 'jesusla.com'
   webhook-url:
-    description: The berth webhook endpoint.
-    default: 'https://webhook.jesusla.com/hooks/berth'
+    description: >
+      The berth webhook endpoint. When empty (the default) it is derived from
+      `domain` as `https://webhook.<domain>/hooks/berth`; set it explicitly only
+      for a non-standard layout.
+    default: ''
   repo:
     description: "`owner/name` of the vessel being deployed."
     default: ${{ github.repository }}
@@ -77,7 +87,8 @@ inputs:
     default: '5'
   status-url:
     description: >
-      Status-readback endpoint. Defaults to the `webhook-url` with its trailing
+      Status-readback endpoint. Defaults to the resolved webhook endpoint
+      (whether given via `webhook-url` or derived from `domain`) with its trailing
       `/berth` replaced by `/berth-status`; set explicitly only for a non-standard
       layout.
     required: false
@@ -98,6 +109,7 @@ runs:
       env:
         BERTH_SECRET: ${{ inputs.webhook-secret }}
         BERTH_URL: ${{ inputs.webhook-url }}
+        DOMAIN: ${{ inputs.domain }}
         REPO: ${{ inputs.repo }}
         REF: ${{ inputs.ref }}
         INSTANCE: ${{ inputs.instance }}
@@ -121,6 +133,10 @@ runs:
           exit 0
         fi
         echo "deploy-id=$DEPLOY_ID" >> "$GITHUB_OUTPUT"
+
+        # Derive the webhook endpoint from the host domain unless given explicitly,
+        # so a vessel on another berth host sets just `domain`.
+        BERTH_URL="${BERTH_URL:-https://webhook.${DOMAIN}/hooks/berth}"
 
         # HMAC-SHA256 over the exact bytes, matching the host's X-Hub-Signature-256.
         sign() { printf '%s' "$1" | openssl dgst -sha256 -hmac "$BERTH_SECRET" -hex | awk '{print $2}'; }

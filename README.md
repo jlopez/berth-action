@@ -253,7 +253,8 @@ jobs:
 | input            | required | default                                  | meaning                                              |
 | ---------------- | -------- | ---------------------------------------- | ---------------------------------------------------- |
 | `webhook-secret` | no       | `''`                                     | HMAC key; empty → no-op + notice.                    |
-| `webhook-url`    | no       | `https://webhook.jesusla.com/hooks/berth` | Runner endpoint.                                     |
+| `domain`         | no       | `jesusla.com`                            | Berth host's wildcard domain; derives `webhook-url` when that's empty. |
+| `webhook-url`    | no       | `''` (derived: `https://webhook.<domain>/hooks/berth`) | Runner endpoint; set explicitly only for a non-standard layout. |
 | `repo`           | no       | `${{ github.repository }}`               | `owner/name` of the vessel.                          |
 | `ref`            | yes      | —                                        | Commit SHA to deploy.                                |
 | `instance`       | yes      | —                                        | `pr-<n>` or `main`.                                  |
@@ -265,7 +266,7 @@ jobs:
 | `wait-timeout`   | no       | `'900'`                                  | Overall budget (s), incl. time queued behind other deploys on the single-flock host. |
 | `wait-running-timeout` | no | `'120'`                                | Backstop (s) once `running` — for a host that dies mid-deploy; the host fails unhealthy stacks itself in ~60s. |
 | `poll-interval`  | no       | `'5'`                                    | Seconds between status polls.                        |
-| `status-url`     | no       | `''` (derived from `webhook-url`)        | Status-readback endpoint; default swaps trailing `/berth` → `/berth-status`. |
+| `status-url`     | no       | `''` (derived from the resolved webhook endpoint) | Status-readback endpoint; default swaps trailing `/berth` → `/berth-status`. |
 
 | output      | meaning                                                                 |
 | ----------- | ----------------------------------------------------------------------- |
@@ -290,6 +291,7 @@ old fire-and-forget behaviour.
 | -------------- | -------- | ------------------------------------------------ | --------------------------------------------- |
 | `services`     | yes      | —                                                | JSON array of `{name, host, …}` objects; empty/absent `host` = root service. |
 | `host-base`    | yes      | —                                                | Caddy hostname base, no trailing dash.        |
+| `domain`       | no       | `jesusla.com`                                    | Preview-URL suffix (the berth host's wildcard domain), e.g. `apps.cadena.run`. |
 | `action`       | yes      | —                                                | `up` (table) or `down` (torn-down note).      |
 | `pr`           | no       | `${{ github.event.pull_request.number }}`        | PR number to comment on.                      |
 | `head-sha`     | no       | `${{ github.event.pull_request.head.sha }}`      | Shown in the comment footer.                  |
