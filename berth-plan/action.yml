@@ -30,8 +30,9 @@ outputs:
   host-base:
     description: >
       Caddy hostname base (no trailing dash), e.g. `gubs-pr-8` or `gubs`. A root
-      service routes to `${HOST_BASE}.jesusla.com`; a suffixed one joins it with a
-      dash: `${HOST_BASE}-sim.jesusla.com`.
+      service routes to `${HOST_BASE}.<domain>`; a suffixed one joins it with a
+      dash: `${HOST_BASE}-sim.<domain>` (the `<domain>` is the berth host's
+      wildcard, set on berth-comment/berth-notify; default `jesusla.com`).
     value: ${{ steps.m.outputs.host-base }}
   tag:
     description: "Image tag the build pushed: `pr-<n>` or `main`."

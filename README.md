@@ -253,7 +253,8 @@ jobs:
 | input            | required | default                                  | meaning                                              |
 | ---------------- | -------- | ---------------------------------------- | ---------------------------------------------------- |
 | `webhook-secret` | no       | `''`                                     | HMAC key; empty → no-op + notice.                    |
-| `webhook-url`    | no       | `https://webhook.jesusla.com/hooks/berth` | Runner endpoint.                                     |
+| `domain`         | no       | `jesusla.com`                            | Berth host's wildcard domain; derives `webhook-url` when that's empty. |
+| `webhook-url`    | no       | `''` (derived: `https://webhook.<domain>/hooks/berth`) | Runner endpoint; set explicitly only for a non-standard layout. |
 | `repo`           | no       | `${{ github.repository }}`               | `owner/name` of the vessel.                          |
 | `ref`            | yes      | —                                        | Commit SHA to deploy.                                |
 | `instance`       | yes      | —                                        | `pr-<n>` or `main`.                                  |
@@ -290,6 +291,7 @@ old fire-and-forget behaviour.
 | -------------- | -------- | ------------------------------------------------ | --------------------------------------------- |
 | `services`     | yes      | —                                                | JSON array of `{name, host, …}` objects; empty/absent `host` = root service. |
 | `host-base`    | yes      | —                                                | Caddy hostname base, no trailing dash.        |
+| `domain`       | no       | `jesusla.com`                                    | Preview-URL suffix (the berth host's wildcard domain), e.g. `apps.cadena.run`. |
 | `action`       | yes      | —                                                | `up` (table) or `down` (torn-down note).      |
 | `pr`           | no       | `${{ github.event.pull_request.number }}`        | PR number to comment on.                      |
 | `head-sha`     | no       | `${{ github.event.pull_request.head.sha }}`      | Shown in the comment footer.                  |
