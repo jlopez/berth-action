@@ -266,7 +266,7 @@ jobs:
 | `wait-timeout`   | no       | `'900'`                                  | Overall budget (s), incl. time queued behind other deploys on the single-flock host. |
 | `wait-running-timeout` | no | `'120'`                                | Backstop (s) once `running` — for a host that dies mid-deploy; the host fails unhealthy stacks itself in ~60s. |
 | `poll-interval`  | no       | `'5'`                                    | Seconds between status polls.                        |
-| `status-url`     | no       | `''` (derived from `webhook-url`)        | Status-readback endpoint; default swaps trailing `/berth` → `/berth-status`. |
+| `status-url`     | no       | `''` (derived from the resolved webhook endpoint) | Status-readback endpoint; default swaps trailing `/berth` → `/berth-status`. |
 
 | output      | meaning                                                                 |
 | ----------- | ----------------------------------------------------------------------- |

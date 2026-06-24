@@ -87,7 +87,8 @@ inputs:
     default: '5'
   status-url:
     description: >
-      Status-readback endpoint. Defaults to the `webhook-url` with its trailing
+      Status-readback endpoint. Defaults to the resolved webhook endpoint
+      (whether given via `webhook-url` or derived from `domain`) with its trailing
       `/berth` replaced by `/berth-status`; set explicitly only for a non-standard
       layout.
     required: false
