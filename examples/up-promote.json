@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "repo": "jlopez/gubs",
+  "ref": "0a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d",
+  "instance": "main",
+  "host_base": "gubs",
+  "tag": "v1.2.3",
+  "action": "up",
+  "deploy_id": "9876543202-1",
+  "secrets": {
+    "OPENAI_API_KEY": "sk-example-not-a-real-key"
+  }
+}

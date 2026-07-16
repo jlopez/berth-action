@@ -23,8 +23,8 @@
     },
     "instance": {
       "type": "string",
-      "pattern": "^(main|pr-[0-9]+)$",
-      "description": "main, or pr-<n> for a preview."
+      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$",
+      "description": "pr-<n> for a preview (the host reconciles these away when their PR closes); any other lowercase DNS-label name is a long-lived instance (main, staging, …). The host keys the vessel's compose project — and thus its volumes — to this name."
     },
     "host_base": {
       "type": "string",
@@ -33,8 +33,8 @@
     },
     "tag": {
       "type": "string",
-      "pattern": "^(main|pr-[0-9]+)$",
-      "description": "Image tag the vessel CI pushed: main or pr-<n>."
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$",
+      "description": "Image tag the vessel CI pushed, interpolated into the compose as TAG: a mutable branch/PR tag (main, pr-<n>) or an immutable release tag (v1.2.3). Docker tag grammar."
     },
     "action": {
       "enum": ["up", "down"],
