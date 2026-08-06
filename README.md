@@ -257,7 +257,7 @@ jobs:
 | `webhook-url`    | no       | `''` (derived: `https://webhook.<domain>/hooks/berth`) | Runner endpoint; set explicitly only for a non-standard layout. |
 | `repo`           | no       | `${{ github.repository }}`               | `owner/name` of the vessel.                          |
 | `ref`            | yes      | —                                        | Commit SHA to deploy.                                |
-| `instance`       | yes      | —                                        | `pr-<n>` or `main`.                                  |
+| `instance`       | yes      | —                                        | `pr-<n>`, `main`, or `staging` (override to re-point `main` pushes at a staging environment). |
 | `host-base`      | yes      | —                                        | Caddy hostname base, no trailing dash.              |
 | `tag`            | yes      | —                                        | Image tag the build pushed.                          |
 | `action`         | yes      | —                                        | `up` or `down`.                                      |
@@ -306,8 +306,8 @@ over the **exact bytes** of the POSTed body (including `secrets`). The contract 
 is:
 
 ```jsonc
-{ "v": 1, "repo": "owner/name", "ref": "<sha>", "instance": "pr-8" | "main",
-  "host_base": "gubs-pr-8" | "gubs", "tag": "pr-8" | "main",
+{ "v": 1, "repo": "owner/name", "ref": "<sha>", "instance": "pr-8" | "main" | "staging",
+  "host_base": "gubs-pr-8" | "gubs", "tag": "pr-8" | "main" | "v1.2.3",
   "action": "up" | "down", "deploy_id": "<run_id-run_attempt>",
   "secrets": { "KEY": "value", … } }
 ```

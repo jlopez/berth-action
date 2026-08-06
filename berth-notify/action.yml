@@ -40,7 +40,7 @@ inputs:
     description: Commit SHA to deploy (from berth-plan `ref`).
     required: true
   instance:
-    description: "`pr-<n>` or `main` (from berth-plan `instance`)."
+    description: "`pr-<n>`, `main`, or `staging` (from berth-plan `instance`; override deliberately to re-point, e.g. `main` pushes at a staging environment)."
     required: true
   host-base:
     description: Caddy hostname base, no trailing dash (from berth-plan `host-base`).

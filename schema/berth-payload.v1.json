@@ -23,8 +23,8 @@
     },
     "instance": {
       "type": "string",
-      "pattern": "^(main|pr-[0-9]+)$",
-      "description": "main, or pr-<n> for a preview."
+      "pattern": "^(main|staging|pr-[0-9]+)$",
+      "description": "main, staging (a continuous-deploy environment re-pointed via berth-notify's overridable instance input), or pr-<n> for a preview."
     },
     "host_base": {
       "type": "string",
@@ -33,8 +33,8 @@
     },
     "tag": {
       "type": "string",
-      "pattern": "^(main|pr-[0-9]+)$",
-      "description": "Image tag the vessel CI pushed: main or pr-<n>."
+      "pattern": "^(main|pr-[0-9]+|v[0-9]+\\.[0-9]+\\.[0-9]+)$",
+      "description": "Image tag the vessel CI pushed: main, pr-<n>, or an immutable release tag v<X.Y.Z> (a version-picked production deploy). Note a staging instance still deploys the main image tag — instance and tag diverge by design there."
     },
     "action": {
       "enum": ["up", "down"],
